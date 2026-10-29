@@ -594,15 +594,30 @@ angular.module('abTreePractice', ['d3', 'Enums', 'Tree'])
           var hiddenInput = $document[0].createElement('input');
           hiddenInput.type = 'text';
           hiddenInput.setAttribute('inputmode', 'decimal'); // force number pad on phones
-          hiddenInput.style.position = 'absolute';
-          hiddenInput.style.left = '-9999px';
+          hiddenInput.setAttribute('autocomplete', 'off');
+          hiddenInput.setAttribute('autocorrect', 'off');
+          hiddenInput.setAttribute('autocapitalize', 'off');
+          hiddenInput.setAttribute('spellcheck', 'false');
+          hiddenInput.style.position = 'fixed';
+          hiddenInput.style.top = '0px';
+          hiddenInput.style.left = '0px';
+          hiddenInput.style.width = '1px';
+          hiddenInput.style.height = '1px';
+          hiddenInput.style.fontSize = '16px';
           hiddenInput.style.opacity = '0';
+          hiddenInput.style.border = 'none';
+          hiddenInput.style.outline = 'none';
+          hiddenInput.style.padding = '0';
+          hiddenInput.style.pointerEvents = 'none';
           element[0].appendChild(hiddenInput);
 
           hiddenInput.addEventListener('input', function() {
             if (selectedNode) {
               // remove any accidental non-numeric characters (except - and .)
-              var valStr = hiddenInput.value.replace(/[^0-9.-]/g, ''); 
+              valStr = hiddenInput.value.replace(/[^0-9.-]/g, '');
+              if (hiddenInput.value !== valStr) {
+                hiddenInput.value = valStr;
+              }
               selectedNode.value = valStr;
               valCharIndex = valStr.length;
               scope.$apply(function() {
@@ -612,7 +627,7 @@ angular.module('abTreePractice', ['d3', 'Enums', 'Tree'])
           });
 
           hiddenInput.addEventListener('blur', function() {
-            if (selectedNode) {
+            if (selectedNode && !mousedownNode) {
               parseAndSetNodeValue();
               scope.$apply(function() {
                 scope.reRender();
@@ -650,7 +665,9 @@ angular.module('abTreePractice', ['d3', 'Enums', 'Tree'])
               var yPos = topMargin + (yOffset * (curNode.depth - 1));
               var xPos = xMin + (range / 2);
 
-              curNode.id = ++lastNodeId;
+              if (curNode.id == null) {
+                curNode.id = ++lastNodeId;
+              }
               curNode.x = xPos;
               curNode.y = yPos;
               nodes.push(curNode);
@@ -680,6 +697,10 @@ angular.module('abTreePractice', ['d3', 'Enums', 'Tree'])
           });
 
           angular.element($window).bind('resize', function() {
+            // Avoid squishing the tree when the mobile virtual keyboard opens/closes
+            if (selectedNode && $window.innerWidth === svgWidth) {
+              return;
+            }
             scope.onResize();
             clearTimeout(scope.resizeTimeout);
             scope.resizeTimeout = setTimeout(function() {
@@ -722,6 +743,12 @@ angular.module('abTreePractice', ['d3', 'Enums', 'Tree'])
               .attr('class', 'mouselink')
               .on('mousedown', function(d) {
                 if (!scope.tree.mutable) { return; }
+                d.pruned = !d.pruned;
+                scope.reRender();
+              })
+              .on('touchstart', function(d) {
+                if (!scope.tree.mutable) { return; }
+                if (d3.event) { d3.event.preventDefault(); }
                 d.pruned = !d.pruned;
                 scope.reRender();
               })
@@ -792,7 +819,18 @@ angular.module('abTreePractice', ['d3', 'Enums', 'Tree'])
                 // select node
                 if (!scope.tree.mutable) { return; }
                 mousedownNode = d;
-                d.oldVal = d.value;
+                if (selectedNode !== d) {
+                  d.oldVal = d.value;
+                }
+                scope.reRender();
+              })
+              .on('touchstart', function(d) {
+                // select node on mobile
+                if (!scope.tree.mutable) { return; }
+                mousedownNode = d;
+                if (selectedNode !== d) {
+                  d.oldVal = d.value;
+                }
                 scope.reRender();
               });
             // show node IDs and alpha-beta
@@ -895,6 +933,7 @@ angular.module('abTreePractice', ['d3', 'Enums', 'Tree'])
             valCharIndex = Math.max(0, valCharIndex - 1);
           }
           function parseAndSetNodeValue() {
+            if (!selectedNode) { return; }
             var newVal = parseFloat(valStr);
             newVal = (isNaN(newVal)) ? null : newVal;
             selectedNode.value = newVal;
@@ -902,33 +941,53 @@ angular.module('abTreePractice', ['d3', 'Enums', 'Tree'])
             valCharIndex = null;
             valStr = null;
             selectedNode = null;
-            cursorRect.remove();
-            cursorRect = null;
+            if (cursorRect) {
+              cursorRect.remove();
+              cursorRect = null;
+            }
           }
           function discardNodeValueChanges() {
+            if (!selectedNode) { return; }
             selectedNode.value = selectedNode.oldVal;
             valCharIndex = null;
             valStr = null;
             selectedNode = null;
-            cursorRect.remove();
-            cursorRect = null;
+            if (cursorRect) {
+              cursorRect.remove();
+              cursorRect = null;
+            }
           }
 
           function svgMouseDown() {
             if (selectedNode && (mousedownNode !== selectedNode)) {
               parseAndSetNodeValue();
+              if (!mousedownNode) {
+                hiddenInput.blur();
+              }
             }
 
             if (mousedownNode) {
-              if (mousedownNode === selectedNode) { return; }
+              if (d3.event) {
+                d3.event.preventDefault();
+              }
+              if (mousedownNode === selectedNode) {
+                mousedownNode = null;
+                hiddenInput.focus();
+                return;
+              }
               selectedNode = mousedownNode;
               mousedownNode = null;
 
-              nodeValue = selectedNode.value
+              var nodeValue = selectedNode.value;
               valStr = (nodeValue == null) ? '' : nodeValue.toString();
               valCharIndex = valStr.length;
+              hiddenInput.style.left = Math.max(0, Math.min(svgWidth - 2, Math.round(selectedNode.x))) + 'px';
+              hiddenInput.style.top = Math.max(0, Math.min(svgHeight - 2, Math.round(selectedNode.y))) + 'px';
               hiddenInput.value = valStr;
               hiddenInput.focus();
+              try {
+                hiddenInput.setSelectionRange(valCharIndex, valCharIndex);
+              } catch (e) {}
               
               cursorRect = selectedNode.nodeEle
                 .append('svg:rect')
@@ -981,10 +1040,12 @@ angular.module('abTreePractice', ['d3', 'Enums', 'Tree'])
               }
 
               if (newChar !== null) {
+                d3.event.preventDefault();
                 var leftSlice = valStr.slice(0, valCharIndex),
                     rightSlice = valStr.slice(valCharIndex, valStr.length);
                 valStr = leftSlice + newChar + rightSlice;
                 selectedNode.value = valStr;
+                hiddenInput.value = valStr;
                 incrValCharIndex();
               } else if (lastKeyDown == 8) { // backspace
                 d3.event.preventDefault();
@@ -992,6 +1053,7 @@ angular.module('abTreePractice', ['d3', 'Enums', 'Tree'])
                     rightSlice = valStr.slice(valCharIndex, valStr.length);
                 valStr = leftSlice + rightSlice;
                 selectedNode.value = valStr;
+                hiddenInput.value = valStr;
                 decrValCharIndex();
               } else if (lastKeyDown == 37) {  // left arrow
                 d3.event.preventDefault();
@@ -1001,8 +1063,10 @@ angular.module('abTreePractice', ['d3', 'Enums', 'Tree'])
                 incrValCharIndex();
               } else if (lastKeyDown == 13) {  // enter
                 parseAndSetNodeValue();
+                hiddenInput.blur();
               } else if (lastKeyDown == 27) {  // escape
                 discardNodeValueChanges();
+                hiddenInput.blur();
               }
               scope.reRender();
               return;
@@ -1013,7 +1077,8 @@ angular.module('abTreePractice', ['d3', 'Enums', 'Tree'])
             lastKeyDown = -1;
           }
 
-          svg.on('mousedown', svgMouseDown);
+          svg.on('mousedown', svgMouseDown)
+             .on('touchend', svgMouseDown);
           d3.select(window)
             .on('keydown', windowKeyDown)
             .on('keyup', windowKeyUp)
