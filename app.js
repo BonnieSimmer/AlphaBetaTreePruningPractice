@@ -590,6 +590,36 @@ angular.module('abTreePractice', ['d3', 'Enums', 'Tree'])
           var svgWidth = 0,
               svgHeight = 0;
 
+          // to trigger mobile keyboards
+          var hiddenInput = $document[0].createElement('input');
+          hiddenInput.type = 'text';
+          hiddenInput.setAttribute('inputmode', 'decimal'); // force number pad on phones
+          hiddenInput.style.position = 'absolute';
+          hiddenInput.style.left = '-9999px';
+          hiddenInput.style.opacity = '0';
+          element[0].appendChild(hiddenInput);
+
+          hiddenInput.addEventListener('input', function() {
+            if (selectedNode) {
+              // remove any accidental non-numeric characters (except - and .)
+              var valStr = hiddenInput.value.replace(/[^0-9.-]/g, ''); 
+              selectedNode.value = valStr;
+              valCharIndex = valStr.length;
+              scope.$apply(function() {
+                scope.reRender();
+              });
+            }
+          });
+
+          hiddenInput.addEventListener('blur', function() {
+            if (selectedNode) {
+              parseAndSetNodeValue();
+              scope.$apply(function() {
+                scope.reRender();
+              });
+            }
+          });
+
           var svg = d3.select(element[0])
             .append('svg');
 
@@ -897,7 +927,9 @@ angular.module('abTreePractice', ['d3', 'Enums', 'Tree'])
               nodeValue = selectedNode.value
               valStr = (nodeValue == null) ? '' : nodeValue.toString();
               valCharIndex = valStr.length;
-
+              hiddenInput.value = valStr;
+              hiddenInput.focus();
+              
               cursorRect = selectedNode.nodeEle
                 .append('svg:rect')
                 .attr('class', 'cursor')
