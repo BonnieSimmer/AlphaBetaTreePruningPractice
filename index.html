@@ -68,7 +68,7 @@
                    aria-valuenow="{{actionLQ.lastAction + 1 + 0.001}}"
                    aria-valuemin="0"
                    aria-valuemax="{{actionLQ.length + 0.001}}"
-                   style="width: {{((actionLQ.lastAction + 1) / actionLQ.length) * 100 + 0.0001}}%"
+                   ng-style="{'width': (((actionLQ.lastAction + 1) / actionLQ.length) * 100 + 0.0001) + '%'}"
               >
                 <span class="sr-only">{{((actionLQ.lastAction + 1) / actionLQ.length) * 100}}% Complete (success)</span>
               </div>

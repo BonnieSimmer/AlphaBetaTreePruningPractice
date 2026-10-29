@@ -931,14 +931,27 @@ angular.module('abTreePractice', ['d3', 'Enums', 'Tree'])
             if (selectedNode) {
               var nodeVal = selectedNode.value;
               valStr = (nodeVal == null) ? '' : nodeVal.toString();
-              if ((lastKeyDown > 47 && lastKeyDown < 58) // number keys
-                  || lastKeyDown == 189 // minus dash
-                  || lastKeyDown == 190) { // decimal point
+              
+              var newChar = null;
+              
+              if (lastKeyDown >= 48 && lastKeyDown <= 57) { 
+                // Standard number keys
+                newChar = String.fromCharCode(lastKeyDown);
+              } else if (lastKeyDown >= 96 && lastKeyDown <= 105) { 
+                // Numpad number keys (subtract 48 to map to standard char codes)
+                newChar = String.fromCharCode(lastKeyDown - 48);
+              } else if (lastKeyDown === 189 || lastKeyDown === 173 || lastKeyDown === 109) { 
+                // Minus (Standard dash, Firefox dash, Numpad subtract)
+                newChar = '-';
+              } else if (lastKeyDown === 190 || lastKeyDown === 110) { 
+                // Decimal point (Standard period, Numpad decimal)
+                newChar = '.';
+              }
+
+              if (newChar !== null) {
                 var leftSlice = valStr.slice(0, valCharIndex),
-                    rightSlice = valStr.slice(valCharIndex, valStr.length),
-                    lastKeyDown = (lastKeyDown > 188) ? (lastKeyDown - 144) : lastKeyDown,
-                    newNum = String.fromCharCode(lastKeyDown);
-                valStr = leftSlice + newNum + rightSlice;
+                    rightSlice = valStr.slice(valCharIndex, valStr.length);
+                valStr = leftSlice + newChar + rightSlice;
                 selectedNode.value = valStr;
                 incrValCharIndex();
               } else if (lastKeyDown == 8) { // backspace
